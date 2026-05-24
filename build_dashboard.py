@@ -734,7 +734,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <p class="text-xs text-slate-500">Visualização em tempo real de acordo com filtros ativos</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                    <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        <span>Exibir</span>
+                        <select id="rowsPerPageSelect" class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="ALL">Todos</option>
+                        </select>
+                    </label>
                     <div class="relative w-full sm:w-64">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                             <i class="fa-solid fa-magnifying-glass text-xs"></i>
@@ -814,7 +824,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         };
 
         let currentPage = 1;
-        const rowsPerPage = 10;
+        let rowsPerPage = 10;
         let filteredRecords = [...RAW_DATA];
 
         let chartRacaInstance = null;
@@ -1251,8 +1261,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('pagesList').innerHTML = '';
                 return;
             }
-            const startIndex = (currentPage - 1) * rowsPerPage;
-            const endIndex = Math.min(startIndex + rowsPerPage, total);
+            const pageSize = rowsPerPage === 'ALL' ? total : rowsPerPage;
+            const totalPages = rowsPerPage === 'ALL' ? 1 : Math.ceil(total / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages;
+            const startIndex = rowsPerPage === 'ALL' ? 0 : (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, total);
             filteredRecords.slice(startIndex, endIndex).forEach((r, idx) => {
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-slate-100 dark:border-slate-900 hover:bg-slate-100/40 dark:hover:bg-slate-900/30 transition-colors";
@@ -1280,7 +1293,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 tableBody.appendChild(tr);
             });
             document.getElementById('tablePaginationInfo').textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${total} registros`;
-            const totalPages = Math.ceil(total / rowsPerPage);
             document.getElementById('btnPrevPage').disabled = currentPage === 1;
             document.getElementById('btnNextPage').disabled = currentPage === totalPages;
             const pagesList = document.getElementById('pagesList');
@@ -1534,8 +1546,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             document.getElementById('btnPrevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
             document.getElementById('btnNextPage').addEventListener('click', () => {
-                const totalPages = Math.ceil(filteredRecords.length / rowsPerPage);
+                const totalPages = rowsPerPage === 'ALL' ? 1 : Math.ceil(filteredRecords.length / rowsPerPage);
                 if (currentPage < totalPages) { currentPage++; renderTable(); }
+            });
+            document.getElementById('rowsPerPageSelect').addEventListener('change', e => {
+                rowsPerPage = e.target.value === 'ALL' ? 'ALL' : Number(e.target.value);
+                currentPage = 1;
+                renderTable();
             });
 
             document.getElementById('exportCsv').addEventListener('click', exportToCSV);
