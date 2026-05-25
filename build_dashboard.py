@@ -160,6 +160,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 
     <style>
         .has-slackey-font-family {
@@ -540,11 +543,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: linear-gradient(90deg, var(--nr-blue), var(--nr-cyan), var(--nr-pink), var(--nr-yellow), var(--nr-green));
             border-radius: 999px;
         }
-        #exportCsv {
+        #exportReport {
             background: var(--nr-blue) !important;
             box-shadow: 0 10px 24px rgba(47,128,193,.18) !important;
         }
-        #exportCsv:hover { background: #246fae !important; }
+        #exportReport:hover { background: #246fae !important; }
         .rounded-2xl, .rounded-3xl, .rounded-xl, .rounded-lg { border-radius: 8px !important; }
         header.rounded-3xl { border-radius: 18px !important; }
         @media (max-width: 760px) {
@@ -870,8 +873,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <input type="text" id="tableSearch" placeholder="Buscar por nome, cargo ou município..."
                                class="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all">
                     </div>
-                    <button id="exportCsv" class="px-4 py-2 bg-gradient-to-r from-brand-teal to-brand-emerald text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-teal/10 hover:shadow-lg hover:shadow-brand-teal/20 transition-all flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-arrow-down"></i> Exportar CSV
+                    <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        <span>Formato</span>
+                        <select id="exportFormat" class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-teal transition-all">
+                            <option value="csv">CSV</option>
+                            <option value="xlsx">XLSX</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </label>
+                    <button id="exportReport" class="px-4 py-2 bg-gradient-to-r from-brand-teal to-brand-emerald text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-teal/10 hover:shadow-lg hover:shadow-brand-teal/20 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-arrow-down"></i> Baixar relatório
                     </button>
                 </div>
             </div>
@@ -1476,23 +1487,91 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        // Exportar CSV
-        function exportToCSV() {
-            if (filteredRecords.length === 0) return;
-            let csv = "data:text/csv;charset=utf-8,\\ufeff";
-            csv += "ID;Nome Completo;Nome Social;Status;Local de Atuacao;Turma;Municipio;Regiao de Saude;Escolaridade;Cargo;Vinculo;Raca/Etnia;Genero;PCD\\r\\n";
-            filteredRecords.forEach(r => {
-                csv += [r.id, `"${r.nome}"`, `"${r.nome_social}"`, r.status, `"${r.local}"`,
-                        `"${r.turma}"`, `"${r.municipio}"`, `"${r.regiao}"`, `"${r.escolaridade}"`,
-                        `"${r.cargo}"`, `"${r.vinculo}"`, `"${r.raca}"`, `"${r.genero}"`, r.pcd
-                ].join(";") + "\\r\\n";
-            });
-            const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csv));
-            link.setAttribute("download", "indicacoes_filtradas_nos_na_rede.csv");
+        const EXPORT_COLUMNS = [
+            ['id', 'ID'],
+            ['nome', 'Nome Completo'],
+            ['nome_social', 'Nome Social'],
+            ['status', 'Status'],
+            ['local', 'Local de Atuacao'],
+            ['turma', 'Turma'],
+            ['municipio', 'Municipio'],
+            ['regiao', 'Regiao de Saude'],
+            ['escolaridade', 'Escolaridade'],
+            ['cargo', 'Cargo'],
+            ['vinculo', 'Vinculo'],
+            ['raca', 'Raca/Etnia'],
+            ['genero', 'Genero'],
+            ['pcd', 'PCD']
+        ];
+
+        function getExportRows() {
+            return filteredRecords.map(record => Object.fromEntries(
+                EXPORT_COLUMNS.map(([key, label]) => [label, record[key] || ''])
+            ));
+        }
+
+        function downloadBlob(content, type, filename) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportToCSV() {
+            if (filteredRecords.length === 0) return;
+            const header = EXPORT_COLUMNS.map(([, label]) => label).join(';');
+            const rows = filteredRecords.map(record => EXPORT_COLUMNS.map(([key]) => {
+                const value = String(record[key] || '').replace(/"/g, '""');
+                return `"${value}"`;
+            }).join(';'));
+            downloadBlob('\\ufeff' + [header, ...rows].join('\\r\\n'), 'text/csv;charset=utf-8;', 'indicacoes_filtradas_nos_na_rede.csv');
+        }
+
+        function exportToXLSX() {
+            if (filteredRecords.length === 0) return;
+            if (typeof XLSX === 'undefined') {
+                alert('Biblioteca XLSX indisponível no momento. Tente novamente em instantes.');
+                return;
+            }
+            const worksheet = XLSX.utils.json_to_sheet(getExportRows());
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Indicações');
+            XLSX.writeFile(workbook, 'indicacoes_filtradas_nos_na_rede.xlsx');
+        }
+
+        function exportToPDF() {
+            if (filteredRecords.length === 0) return;
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                alert('Biblioteca PDF indisponível no momento. Tente novamente em instantes.');
+                return;
+            }
+            const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+            doc.setFontSize(14);
+            doc.text('Nós na Rede - Relatório de Indicações', 40, 36);
+            doc.setFontSize(9);
+            doc.text(`Registros filtrados: ${filteredRecords.length}`, 40, 54);
+            doc.autoTable({
+                head: [EXPORT_COLUMNS.map(([, label]) => label)],
+                body: filteredRecords.map(record => EXPORT_COLUMNS.map(([key]) => record[key] || '')),
+                startY: 70,
+                styles: { fontSize: 6, cellPadding: 3, overflow: 'linebreak' },
+                headStyles: { fillColor: [47, 128, 193], textColor: 255 },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
+                margin: { left: 24, right: 24 }
+            });
+            doc.save('indicacoes_filtradas_nos_na_rede.pdf');
+        }
+
+        function exportReport() {
+            const format = document.getElementById('exportFormat').value;
+            if (format === 'xlsx') exportToXLSX();
+            else if (format === 'pdf') exportToPDF();
+            else exportToCSV();
         }
 
         // Cores dos gráficos
@@ -1673,7 +1752,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 renderTable();
             });
 
-            document.getElementById('exportCsv').addEventListener('click', exportToCSV);
+            document.getElementById('exportReport').addEventListener('click', exportReport);
 
             filterDataset();
             refreshDashboardData(true);
