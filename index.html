@@ -189,6 +189,42 @@
             animation: dot-drift 5.8s ease-in-out infinite;
             animation-delay: var(--dot-delay);
         }
+        .network-lines-background {
+            position: fixed;
+            inset: -8% -12%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+            opacity: .5;
+            mix-blend-mode: multiply;
+        }
+        .dark .network-lines-background {
+            opacity: .32;
+            mix-blend-mode: screen;
+        }
+        .network-lines-background svg {
+            width: 124%;
+            height: 124%;
+            transform: translate3d(-8%, -6%, 0);
+        }
+        .network-line {
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 18;
+            stroke-dasharray: 1500;
+            filter: drop-shadow(0 12px 18px rgba(21,31,46,.08));
+            animation: network-line-flow 18s ease-in-out infinite alternate;
+        }
+        .network-line.line-blue { stroke: rgba(47,128,193,.42); animation-delay: 0s; }
+        .network-line.line-cyan { stroke: rgba(51,166,217,.38); animation-delay: -3s; }
+        .network-line.line-pink { stroke: rgba(237,79,154,.35); animation-delay: -6s; }
+        .network-line.line-yellow { stroke: rgba(242,207,67,.42); animation-delay: -9s; }
+        .network-line.line-green { stroke: rgba(120,189,67,.36); animation-delay: -12s; }
+        .network-node {
+            filter: drop-shadow(0 8px 14px rgba(21,31,46,.12));
+            animation: network-node-pulse 5.5s ease-in-out infinite;
+        }
         .dot-red { background: var(--nr-red); }
         .dot-blue { background: var(--nr-cyan); }
         .dot-orange { background: #ffb31a; }
@@ -211,9 +247,19 @@
             0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
             50% { transform: translate3d(10px, -16px, 0) scale(1.08); }
         }
+        @keyframes network-line-flow {
+            0% { stroke-dashoffset: 130; transform: translate3d(0, 0, 0); }
+            100% { stroke-dashoffset: -180; transform: translate3d(16px, -10px, 0); }
+        }
+        @keyframes network-node-pulse {
+            0%, 100% { transform: scale(1); opacity: .72; }
+            50% { transform: scale(1.12); opacity: .95; }
+        }
         @media (prefers-reduced-motion: reduce) {
             .collage-shape,
-            .collage-dot {
+            .collage-dot,
+            .network-line,
+            .network-node {
                 animation: none !important;
             }
         }
@@ -468,6 +514,21 @@
         <div class="collage-dot dot-pink" style="width:23px;height:23px;left:83%;top:18%;--dot-delay:1.94s;"></div>
         <div class="collage-dot dot-green" style="width:21px;height:21px;left:19%;top:48%;--dot-delay:.72s;"></div>
         <div class="collage-dot dot-yellow" style="width:14px;height:14px;left:38%;top:23%;--dot-delay:.58s;"></div>
+    </div>
+
+    <div class="network-lines-background" aria-hidden="true">
+        <svg viewBox="0 0 1600 1200" preserveAspectRatio="none" role="presentation" focusable="false">
+            <path class="network-line line-blue" d="M-140 248 C 120 120, 315 355, 520 235 S 890 95, 1080 265 S 1435 520, 1740 310" />
+            <path class="network-line line-yellow" d="M-120 532 C 170 460, 275 705, 535 626 S 875 335, 1125 470 S 1415 700, 1745 592" />
+            <path class="network-line line-pink" d="M-160 835 C 120 700, 320 970, 590 820 S 905 612, 1145 760 S 1440 1040, 1750 848" />
+            <path class="network-line line-cyan" d="M80 -90 C 160 180, 75 360, 260 520 S 540 690, 505 925 S 620 1185, 870 1290" />
+            <path class="network-line line-green" d="M1320 -110 C 1180 155, 1385 330, 1195 548 S 980 840, 1128 1050 S 1305 1245, 1180 1330" />
+            <circle class="network-node" cx="520" cy="235" r="14" fill="#2f80c1" />
+            <circle class="network-node" cx="535" cy="626" r="12" fill="#f2cf43" />
+            <circle class="network-node" cx="1145" cy="760" r="13" fill="#ed4f9a" />
+            <circle class="network-node" cx="1195" cy="548" r="12" fill="#78bd43" />
+            <circle class="network-node" cx="260" cy="520" r="10" fill="#33a6d9" />
+        </svg>
     </div>
 
     <div class="dashboard-shell max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
